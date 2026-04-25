@@ -32,7 +32,6 @@ const translations = {
     'pwa.installed': 'JanVaani installed and ready offline.',
     'pwa.offlineReady': 'JanVaani is cached for offline use.',
     'pwa.updateReady': 'Update downloaded. Reopen JanVaani to finish updating.',
-    'pwa.swError': 'Offline setup failed: {message}',
 
     'category.emergency': 'Emergency',
     'category.medical': 'Medical',

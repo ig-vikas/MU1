@@ -3557,7 +3557,6 @@ function escapeHtml(value) {
 }
 
 function handleBeforeInstallPrompt(event) {
-  event.preventDefault();
   deferredInstallPrompt = event;
 }
 
@@ -3587,7 +3586,7 @@ function handleServiceWorkerStatus(status, error) {
   }
 
   if (status === 'service-worker-error') {
-    showToast(t('pwa.swError', { message: error?.message ?? t('app.unavailable') }), 'error');
+    console.warn('JanVaani offline cache unavailable:', error);
   }
 }
 
