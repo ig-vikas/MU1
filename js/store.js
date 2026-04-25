@@ -1,8 +1,9 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'janvaani';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ALERT_STORE = 'alerts';
+const CHAT_STORE = 'chats';
 const PURGE_INTERVAL_KEY = '__janvaaniPurgeIntervalId';
 let dbPromise;
 
@@ -45,6 +46,11 @@ export async function initDB() {
             store.createIndex('created', 'created');
             store.createIndex('expiresAt', 'expiresAt');
             store.createIndex('region', 'region');
+          }
+
+          if (!db.objectStoreNames.contains(CHAT_STORE)) {
+            const chatStore = db.createObjectStore(CHAT_STORE, { keyPath: 'id' });
+            chatStore.createIndex('expiresAt', 'expiresAt');
           }
         }
       });
@@ -261,6 +267,75 @@ export async function bulkSave(alerts) {
   }
 }
 
+/**
+ * Saves one chat message. Silently skips if id already exists.
+ * expiresAt is derived from created + ttl (both in seconds).
+ * @param {object} message - Community chat message to persist.
+ * @returns {Promise<boolean>} True when saved, false when skipped or failed.
+ */
+export async function saveChatMessage(message) {
+  try {
+    if (!message?.id) return false;
+    const db = await initDB();
+    const existing = await db.get(CHAT_STORE, message.id);
+    if (existing) return false;
+    await db.add(CHAT_STORE, {
+      id: String(message.id),
+      text: String(message.text ?? ''),
+      created: Number(message.created),
+      ttl: Number(message.ttl ?? 1800),
+      hops: Number(message.hops ?? 0),
+      maxHops: Number(message.maxHops ?? 20),
+      source: String(message.source ?? ''),
+      own: Boolean(message.own),
+      expiresAt: (Number(message.created) + Number(message.ttl ?? 1800)) * 1000
+    });
+    return true;
+  } catch (error) {
+    console.warn('saveChatMessage failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Returns all non-expired chat messages sorted oldest-first.
+ * @returns {Promise<object[]>} Non-expired chat messages.
+ */
+export async function getAllChatMessages() {
+  try {
+    await purgeChatMessages();
+    const db = await initDB();
+    const all = await db.getAll(CHAT_STORE);
+    const now = Date.now();
+    return all.filter((message) => message.expiresAt > now).sort((a, b) => a.created - b.created);
+  } catch (error) {
+    console.warn('getAllChatMessages failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Deletes expired chat messages using the expiresAt index.
+ * @returns {Promise<void>} Resolves when expired chat messages are deleted.
+ */
+export async function purgeChatMessages() {
+  try {
+    const db = await initDB();
+    const tx = db.transaction(CHAT_STORE, 'readwrite');
+    const index = tx.store.index('expiresAt');
+    let cursor = await index.openCursor(IDBKeyRange.upperBound(Date.now()));
+
+    while (cursor) {
+      await cursor.delete();
+      cursor = await cursor.continue();
+    }
+
+    await tx.done;
+  } catch (error) {
+    console.warn('purgeChatMessages failed:', error);
+  }
+}
+
 if (typeof indexedDB !== 'undefined') {
   initDB().catch((error) => {
     console.warn(error);
@@ -269,6 +344,9 @@ if (typeof indexedDB !== 'undefined') {
   if (!globalThis[PURGE_INTERVAL_KEY]) {
     globalThis[PURGE_INTERVAL_KEY] = setInterval(() => {
       purgeExpired().catch((error) => {
+        console.warn(error);
+      });
+      purgeChatMessages().catch((error) => {
         console.warn(error);
       });
     }, 300000);

@@ -9,7 +9,7 @@ import {
   ttlCountdown,
   validateAlert
 } from './message.js';
-import { bulkSave, clearAllData, getAllAlerts, saveAlert } from './store.js';
+import { bulkSave, clearAllData, getAllAlerts, getAllChatMessages, saveAlert, saveChatMessage } from './store.js';
 import { generateChunks, renderQR, startScanner, stopScanner } from './qr.js';
 import {
   acceptOffer,
@@ -1469,13 +1469,14 @@ function renderAlertCard(alert, replaced) {
         </div>
         <div class="alert-card-badges">
           ${replaced ? `<span class="badge badge-expired">${escapeHtml(t('alerts.replaced'))}</span>` : ''}
+          ${Number(alert.hops ?? 0) >= 1 ? `<span class="badge badge-hops">📡 ${Number(alert.hops ?? 0)}</span>` : ''}
           <span class="badge badge-${escapeHtml(status)}">${escapeHtml(t(`expiry.${status}`))}</span>
         </div>
       </div>
       <h2 class="alert-card-title">${escapeHtml(alert.title)}</h2>
       <p class="alert-card-body ${expanded ? 'expanded' : ''}">${escapeHtml(alert.body)}</p>
       <div class="alert-card-meta">
-        <span>${Number(alert.hops ?? 0)} ${escapeHtml(t('app.hops'))} · ${escapeHtml(alert.region)} · ${escapeHtml(timeAgo(alert.created))} · ${escapeHtml(ttlCountdown(alert))}</span>
+        <span>${escapeHtml(alert.region)} · ${escapeHtml(timeAgo(alert.created))} · ${escapeHtml(ttlCountdown(alert))}</span>
       </div>
       <div class="badge badge-confidence">${escapeHtml(confidence)}</div>
       ${expanded
@@ -3037,6 +3038,10 @@ function addCommunityChatMessage(message) {
 
   communityChatSeenIds.add(message.id);
   communityChatMessages.push(message);
+  // Persist to IndexedDB (non-blocking)
+  saveChatMessage(message).catch((error) => {
+    console.warn('chat persist failed:', error);
+  });
   pruneCommunityChatMessages();
   return true;
 }
@@ -3514,6 +3519,19 @@ async function bootJanVaani() {
     registerJanVaaniServiceWorker(() => {});
     initShakeToWipe();
     applyDemoMode();
+
+    // Hydrate community chat from IndexedDB
+    try {
+      const storedChats = await getAllChatMessages();
+      for (const msg of storedChats) {
+        if (!communityChatSeenIds.has(msg.id)) {
+          communityChatSeenIds.add(msg.id);
+          communityChatMessages.push(msg);
+        }
+      }
+    } catch (error) {
+      console.warn('chat hydration failed:', error);
+    }
 
     if (!ROUTES.has(window.location.hash)) {
       window.location.hash = '#home';

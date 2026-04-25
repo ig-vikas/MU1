@@ -420,6 +420,13 @@ select:focus-visible {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.badge-hops {
+  color: #4cc9f0;
+  background: rgba(76, 201, 240, 0.15);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
 .filter-bar {
   display: flex;
   gap: 8px;
@@ -1277,4 +1284,193 @@ body.demo-active .settings-page .page-title {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.poster-qr-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  margin: 16px 0;
+}
+
+.poster-chunk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.poster-chunk .poster-meta {
+  color: #555;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.community-panel {
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.community-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.community-panel-header h3 {
+  margin: 0;
+  color: #e8e8e8;
+  font-size: 1.1rem;
+}
+
+.community-panel-header p {
+  margin: 4px 0 0;
+  color: #999;
+  font-size: 0.82rem;
+}
+
+.community-chat-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  scroll-behavior: smooth;
+}
+
+.community-chat-empty {
+  padding: 24px 16px;
+  color: #777;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.community-message {
+  align-self: flex-start;
+  max-width: 85%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.community-message.own {
+  align-self: flex-end;
+  background: rgba(108, 140, 255, 0.15);
+  border: 1px solid rgba(108, 140, 255, 0.25);
+}
+
+.community-message-text {
+  color: #e8e8e8;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.community-message-meta {
+  margin-top: 4px;
+  color: #888;
+  font-size: 0.72rem;
+}
+
+.community-chat-form {
+  margin-top: 8px;
+}
+
+.community-chat-form .form-label {
+  display: none;
+}
+
+.community-chat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.community-chat-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.community-send-btn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.news-list {
+  margin-top: 24px;
+}
+
+.news-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.news-list-header h2 {
+  margin: 0;
+  color: #e8e8e8;
+  font-size: 1rem;
+}
+
+.news-card {
+  margin-bottom: 10px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.news-card:hover {
+  border-color: rgba(108, 140, 255, 0.3);
+}
+
+.news-card-title {
+  margin-bottom: 6px;
+  color: #e8e8e8;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.news-card-body {
+  margin-bottom: 8px;
+  color: #bbb;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.news-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.news-empty {
+  margin-top: 16px;
+}
+
+.badge-hops {
+  padding: 2px 8px;
+  color: #8aa4ff;
+  background: rgba(108, 140, 255, 0.15);
+  border: 1px solid rgba(108, 140, 255, 0.25);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
