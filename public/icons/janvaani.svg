@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="JanVaani icon">
+  <rect width="512" height="512" rx="112" fill="#08090f"/>
+  <path d="M98 330c50 48 104 72 162 72 68 0 124-32 168-96" fill="none" stroke="#ffb84d" stroke-width="28" stroke-linecap="round"/>
+  <path d="M138 244c28-54 70-82 126-82 56 0 98 28 126 82" fill="none" stroke="#4cc9f0" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="58" fill="#ff4d5d"/>
+  <text x="256" y="278" text-anchor="middle" font-family="Arial, sans-serif" font-size="82" font-weight="800" fill="#ffffff">जन</text>
+</svg>

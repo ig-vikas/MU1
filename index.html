@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta
+      name="description"
+      content="JanVaani is an offline public alert system for civilians during internet blackouts."
+    />
+    <link rel="icon" href="/icons/janvaani.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <title>JanVaani — जनवाणी</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      (async () => {
+        if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+          try {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+              if (event.data?.type === 'JANVAANI_DEV_SW_RESET' && event.data.url) {
+                window.location.replace(event.data.url);
+              }
+            });
+
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            const cacheNames = 'caches' in window ? await caches.keys() : [];
+
+            await Promise.all([
+              ...registrations.map((registration) => registration.unregister()),
+              ...cacheNames.map((cacheName) => caches.delete(cacheName))
+            ]);
+          } catch (error) {
+            console.warn('JanVaani dev cache cleanup failed', error);
+          }
+        }
+      })();
+    </script>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>
