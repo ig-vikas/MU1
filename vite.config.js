@@ -1,17 +1,34 @@
 import { defineConfig } from 'vite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { VitePWA } from 'vite-plugin-pwa';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+const devCertificatePath = path.join(rootDir, '.certs', 'janvaani-dev.pfx');
+const localHttps = fs.existsSync(devCertificatePath)
+  ? {
+    pfx: fs.readFileSync(devCertificatePath),
+    passphrase: process.env.JANVAANI_CERT_PASSPHRASE || 'janvaani'
+  }
+  : true;
+const needsBasicSsl = localHttps === true;
 
 export default defineConfig({
   server: {
     host: '0.0.0.0',
-    https: true
+    https: localHttps
+  },
+  preview: {
+    host: '0.0.0.0',
+    https: localHttps
   },
   build: {
     chunkSizeWarningLimit: 700
   },
   plugins: [
-    basicSsl(),
+    needsBasicSsl ? basicSsl() : undefined,
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
@@ -76,5 +93,5 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ].filter(Boolean)
 });
