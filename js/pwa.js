@@ -42,16 +42,16 @@ export function registerJanVaaniServiceWorker(onStatus) {
   return registerSW({
     immediate: true,
     onNeedRefresh() {
-      report('Update ready');
+      report('update-ready');
     },
     onOfflineReady() {
-      report('Offline ready');
+      report('offline-ready');
     },
     onRegisteredSW() {
-      report('Service worker active');
+      report('service-worker-active');
     },
     onRegisterError(error) {
-      report(`Service worker error: ${error.message}`);
+      report('service-worker-error', error);
     }
   });
 }

@@ -94,6 +94,7 @@ let connectSyncText = t('connect.syncIdle');
 let connectLastSyncPhase = 'idle';
 let demoModeActive = false;
 let demoDevice = 'a';
+let deferredInstallPrompt = null;
 try {
   const storedDemoMode = localStorage.getItem(DEMO_MODE_KEY);
   demoModeActive = storedDemoMode === null ? false : storedDemoMode === 'true';
@@ -435,11 +436,16 @@ export function renderSettings() {
 
         <section class="settings-section">
           <div class="settings-section-title">${escapeHtml(t('settings.shareApp'))}</div>
-          <div class="settings-row">
+          <div class="settings-row settings-share-row">
             <label>${escapeHtml(t('settings.shareAppBody'))}</label>
-            <button class="btn-secondary" style="width:auto;margin:0" type="button" data-share-app>
-              ${escapeHtml(t('settings.showQr'))}
-            </button>
+            <div class="settings-action-group">
+              <button class="btn-primary" type="button" data-install-app>
+                ${escapeHtml(t('pwa.installApp'))}
+              </button>
+              <button class="btn-secondary" type="button" data-share-app>
+                ${escapeHtml(t('settings.showQr'))}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -726,6 +732,7 @@ export async function showShareAppModal() {
           </div>
         </div>
         <div class="modal-actions">
+          <button class="btn-primary" type="button" data-install-app>${escapeHtml(t('pwa.installApp'))}</button>
           <button class="btn-secondary" type="button" data-close-modal>${escapeHtml(t('app.close'))}</button>
         </div>
       </section>
@@ -737,12 +744,49 @@ export async function showShareAppModal() {
 
       if (event.target === overlay || target?.closest('[data-close-modal]')) {
         closeModal();
+        return;
+      }
+
+      if (target?.closest('[data-install-app]')) {
+        void promptInstallJanVaani();
       }
     });
 
     await renderQR(APP_ORIGIN, 'shareAppQr');
   } catch (error) {
     showToast(t('error.appQr', { message: error.message }), 'error');
+  }
+}
+
+/**
+ * Prompts the browser to install JanVaani when the PWA install event is available.
+ * @returns {Promise<void>} Resolves after the install prompt flow completes.
+ */
+export async function promptInstallJanVaani() {
+  try {
+    if (isRunningStandalone()) {
+      showToast(t('pwa.alreadyInstalled'), 'info');
+      return;
+    }
+
+    if (!deferredInstallPrompt) {
+      showToast(t('pwa.installUnavailable'), 'info');
+      return;
+    }
+
+    const installPrompt = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+
+    if (choice?.outcome === 'accepted') {
+      showToast(t('pwa.installAccepted'), 'success');
+      return;
+    }
+
+    showToast(t('pwa.installDismissed'), 'info');
+  } catch (error) {
+    showToast(t('pwa.installFailed', { message: error.message }), 'error');
   }
 }
 
@@ -930,6 +974,13 @@ async function handleAppClick(event) {
 
     if (shareButton) {
       await showShareAppModal();
+      return;
+    }
+
+    const installButton = target.closest('[data-install-app]');
+
+    if (installButton) {
+      await promptInstallJanVaani();
       return;
     }
 
@@ -3505,6 +3556,44 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+function handleBeforeInstallPrompt(event) {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+}
+
+function handleAppInstalled() {
+  deferredInstallPrompt = null;
+  closeModal();
+  showToast(t('pwa.installed'), 'success');
+}
+
+function isRunningStandalone() {
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.matchMedia?.('(display-mode: fullscreen)').matches ||
+    window.navigator?.standalone === true
+  );
+}
+
+function handleServiceWorkerStatus(status, error) {
+  if (status === 'offline-ready') {
+    showToast(t('pwa.offlineReady'), 'success');
+    return;
+  }
+
+  if (status === 'update-ready') {
+    showToast(t('pwa.updateReady'), 'info');
+    return;
+  }
+
+  if (status === 'service-worker-error') {
+    showToast(t('pwa.swError', { message: error?.message ?? t('app.unavailable') }), 'error');
+  }
+}
+
+window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+window.addEventListener('appinstalled', handleAppInstalled);
+
 window.addEventListener('hashchange', () => {
   void render();
 });
@@ -3516,7 +3605,7 @@ window.addEventListener('DOMContentLoaded', () => {
 async function bootJanVaani() {
   try {
     await clearDevelopmentServiceWorkers();
-    registerJanVaaniServiceWorker(() => {});
+    registerJanVaaniServiceWorker(handleServiceWorkerStatus);
     initShakeToWipe();
     applyDemoMode();
 

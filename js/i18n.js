@@ -23,6 +23,17 @@ const translations = {
     'app.primaryActions': 'Primary actions',
     'app.unknownSource': 'unknown source',
 
+    'pwa.installApp': 'Install App',
+    'pwa.installUnavailable': 'Use your browser menu to install JanVaani after this secure app finishes loading.',
+    'pwa.installAccepted': 'Install started.',
+    'pwa.installDismissed': 'Install cancelled.',
+    'pwa.installFailed': 'Install failed: {message}',
+    'pwa.alreadyInstalled': 'JanVaani is already installed.',
+    'pwa.installed': 'JanVaani installed and ready offline.',
+    'pwa.offlineReady': 'JanVaani is cached for offline use.',
+    'pwa.updateReady': 'Update downloaded. Reopen JanVaani to finish updating.',
+    'pwa.swError': 'Offline setup failed: {message}',
+
     'category.emergency': 'Emergency',
     'category.medical': 'Medical',
     'category.route': 'Safe Route',

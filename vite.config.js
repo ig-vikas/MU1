@@ -15,15 +15,51 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg}']
+        globPatterns: ['**/*.{js,css,html,png,svg}'],
+        navigateFallback: '/index.html',
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true
       },
       manifest: {
+        id: '/',
         name: 'JanVaani',
         short_name: 'JanVaani',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',
         display: 'standalone',
-        description: 'Offline public alert system — जनवाणी',
+        start_url: '/',
+        scope: '/',
+        orientation: 'portrait',
+        lang: 'en',
+        categories: ['utilities', 'news', 'social'],
+        description: 'Offline public alert system for civilians during internet blackouts.',
+        shortcuts: [
+          {
+            name: 'Create Alert',
+            short_name: 'Create',
+            url: '/#create',
+            icons: [
+              {
+                src: '/icons/icon-192.png',
+                sizes: '192x192',
+                type: 'image/png'
+              }
+            ]
+          },
+          {
+            name: 'Scan QR',
+            short_name: 'Scan',
+            url: '/#scan',
+            icons: [
+              {
+                src: '/icons/icon-192.png',
+                sizes: '192x192',
+                type: 'image/png'
+              }
+            ]
+          }
+        ],
         icons: [
           {
             src: '/icons/icon-192.png',

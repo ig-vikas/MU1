@@ -872,6 +872,41 @@ body.demo-active .settings-page .page-title {
   font-size: 0.95rem;
 }
 
+.settings-action-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-action-group .btn-primary,
+.settings-action-group .btn-secondary {
+  width: auto;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .settings-share-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-action-group {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .settings-action-group .btn-primary,
+  .settings-action-group .btn-secondary {
+    flex: 1 1 130px;
+  }
+}
+
 .lang-toggle {
   display: flex;
   overflow: hidden;
