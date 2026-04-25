@@ -5,9 +5,9 @@
   "type": "module",
   "description": "JanVaani offline-first public alert PWA for civilians during internet blackouts in India.",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 0.0.0.0 --port 4173",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
     "serve": "npx serve dist -l 5000 --cors"
   },
   "dependencies": {

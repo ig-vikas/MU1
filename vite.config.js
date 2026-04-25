@@ -7,7 +7,14 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const devCertificatePath = path.join(rootDir, '.certs', 'janvaani-dev.pfx');
-const localHttps = fs.existsSync(devCertificatePath)
+const devKeyPath = path.join(rootDir, '.certs', 'janvaani-dev.key.pem');
+const devCertPath = path.join(rootDir, '.certs', 'janvaani-dev.cert.pem');
+const localHttps = fs.existsSync(devKeyPath) && fs.existsSync(devCertPath)
+  ? {
+    key: fs.readFileSync(devKeyPath),
+    cert: fs.readFileSync(devCertPath)
+  }
+  : fs.existsSync(devCertificatePath)
   ? {
     pfx: fs.readFileSync(devCertificatePath),
     passphrase: process.env.JANVAANI_CERT_PASSPHRASE || 'janvaani'
@@ -32,7 +39,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         clientsClaim: true,
@@ -68,6 +75,18 @@ export default defineConfig({
             name: 'Scan QR',
             short_name: 'Scan',
             url: '/#scan',
+            icons: [
+              {
+                src: '/icons/icon-192.png',
+                sizes: '192x192',
+                type: 'image/png'
+              }
+            ]
+          },
+          {
+            name: 'Emergency Alerts',
+            short_name: 'Emergency',
+            url: '/#emergency',
             icons: [
               {
                 src: '/icons/icon-192.png',

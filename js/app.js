@@ -21,8 +21,26 @@ import {
 import { startSync } from './gossip.js';
 import { getLang, setLang, t } from './i18n.js';
 import { clearDevelopmentServiceWorkers, registerJanVaaniServiceWorker } from './pwa.js';
+import {
+  handleEmergencyChange,
+  handleEmergencyClick,
+  handleEmergencyInput,
+  handleEmergencySubmit,
+  renderEmergencyAlerts
+} from './emergencyAlerts.js';
 
-const ROUTES = new Set(['#home', '#alerts', '#scan', '#share', '#create', '#news', '#connect', '#settings']);
+const ROUTES = new Set([
+  '#home',
+  '#qr-service',
+  '#alerts',
+  '#scan',
+  '#share',
+  '#create',
+  '#news',
+  '#connect',
+  '#emergency',
+  '#settings'
+]);
 const APP_ORIGIN = window.location.origin || 'http://127.0.0.1:5173';
 const CONNECT_TIMEOUT_MS = 60000;
 const SHARE_QR_MAX_SIZE = 620;
@@ -172,12 +190,14 @@ export async function render() {
 
     const routeRenderers = {
       '#home': renderHomeScreen,
+      '#qr-service': renderQrService,
       '#alerts': renderAlerts,
       '#scan': renderScan,
       '#share': renderShare,
       '#create': renderCreate,
       '#news': renderLocalNewsBroadcast,
       '#connect': renderConnect,
+      '#emergency': renderEmergencyAlerts,
       '#settings': renderSettings
     };
 
@@ -984,6 +1004,10 @@ async function handleAppClick(event) {
       return;
     }
 
+    if (await handleEmergencyClick(target)) {
+      return;
+    }
+
     const langButton = target.closest('[data-lang]');
 
     if (langButton) {
@@ -1156,6 +1180,10 @@ async function handleAppClick(event) {
 
 function handleAppInput(event) {
   try {
+    if (handleEmergencyInput(event)) {
+      return;
+    }
+
     const target = event.target;
 
     if (!(target instanceof HTMLTextAreaElement) || target.id !== 'createBody') {
@@ -1170,6 +1198,10 @@ function handleAppInput(event) {
 
 function handleAppChange(event) {
   try {
+    if (handleEmergencyChange(event)) {
+      return;
+    }
+
     const target = event.target;
 
     if (target instanceof HTMLInputElement && target.matches('[data-share-alert]')) {
@@ -1204,6 +1236,12 @@ async function handleAppSubmit(event) {
     const form = event.target;
 
     if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    if (form.id === 'emergencyBroadcastForm') {
+      event.preventDefault();
+      await handleEmergencySubmit(form);
       return;
     }
 
@@ -1353,6 +1391,7 @@ function renderHeader() {
       <div class="header-actions">
         <span class="lang-indicator" aria-label="${escapeHtml(t('settings.language'))}">${escapeHtml(langLabel)}</span>
         <button class="header-icon-btn" type="button" data-share-app aria-label="${escapeHtml(t('app.share'))}">📲</button>
+        <button class="header-icon-btn header-alert-btn" type="button" data-route="#alerts" aria-label="${escapeHtml(t('home.viewAlerts.title'))}" title="${escapeHtml(t('home.viewAlerts.title'))}">!</button>
         <button class="header-icon-btn" type="button" data-route="#settings" aria-label="${escapeHtml(t('app.settings'))}">⚙️</button>
       </div>
     </header>
@@ -1372,6 +1411,10 @@ function renderDemoBanner() {
 }
 
 async function renderHomeScreen() {
+  return renderHomeActionList();
+}
+
+async function renderLegacyHomeScreen() {
   try {
     const alertCount = getPublicAlerts(await getAllAlerts()).length;
 
@@ -1423,6 +1466,63 @@ async function renderHomeScreen() {
     showToast(t('error.homeLoad', { message: error.message }), 'error');
     return renderUnavailable('📋', t('app.name'), t('error.homeLoad', { message: error.message }));
   }
+}
+
+function renderHomeActionList() {
+  return `
+    ${renderHeader()}
+    <main class="home-container" aria-label="${escapeHtml(t('app.primaryActions'))}">
+      <button class="home-btn" type="button" data-route="#qr-service">
+        <span class="home-btn-icon">QR</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.qrService.title'))}</h3>
+          <p>${escapeHtml(t('home.qrService.body'))}</p>
+        </span>
+      </button>
+      <button class="home-btn" type="button" data-route="#connect">
+        <span class="home-btn-icon">P2P</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.peer.title'))}</h3>
+          <p>${escapeHtml(t('home.peer.body'))}</p>
+        </span>
+      </button>
+      <button class="home-btn" type="button" data-route="#news">
+        <span class="home-btn-icon">NEWS</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.news.title'))}</h3>
+          <p>${escapeHtml(t('home.news.body'))}</p>
+        </span>
+      </button>
+      <button class="home-btn" type="button" data-route="#emergency">
+        <span class="home-btn-icon">!</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.emergency.title'))}</h3>
+        </span>
+      </button>
+    </main>
+  `;
+}
+
+function renderQrService() {
+  return `
+    ${renderHeader()}
+    <main class="home-container" aria-label="${escapeHtml(t('home.qrService.title'))}">
+      <button class="home-btn" type="button" data-route="#scan">
+        <span class="home-btn-icon">SCAN</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.scan.title'))}</h3>
+          <p>${escapeHtml(t('home.scan.body'))}</p>
+        </span>
+      </button>
+      <button class="home-btn" type="button" data-route="#share">
+        <span class="home-btn-icon">SHARE</span>
+        <span class="home-btn-text">
+          <h3>${escapeHtml(t('home.share.title'))}</h3>
+          <p>${escapeHtml(t('home.share.body'))}</p>
+        </span>
+      </button>
+    </main>
+  `;
 }
 
 function renderFilterBar() {
