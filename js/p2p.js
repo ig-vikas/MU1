@@ -2,7 +2,7 @@ import { deflate, inflate } from 'pako';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const ICE_WAIT_MS = 12000;
+const ICE_WAIT_MS = 5000;
 const CHANNEL_LABEL = 'janvaani-gossip';
 const SDP_PREFIX = 'JVSDP1:';
 const PEER_CONFIG = Object.freeze({

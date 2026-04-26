@@ -10,6 +10,7 @@ import {
   validateAlert
 } from './message.js';
 import { bulkSave, clearAllData, getAllAlerts, getAllChatMessages, saveAlert, saveChatMessage } from './store.js';
+import { getOrCreateSigningKeyPair, signAlert, verifyAlertSignature } from './crypto.js';
 import { generateChunks, renderQR, startScanner, stopScanner } from './qr.js';
 import {
   acceptOffer,
@@ -21,26 +22,9 @@ import {
 import { startSync } from './gossip.js';
 import { getLang, setLang, t } from './i18n.js';
 import { clearDevelopmentServiceWorkers, registerJanVaaniServiceWorker } from './pwa.js';
-import {
-  handleEmergencyChange,
-  handleEmergencyClick,
-  handleEmergencyInput,
-  handleEmergencySubmit,
-  renderEmergencyAlerts
-} from './emergencyAlerts.js';
+import { broadcastAlertViaBc, initBroadcastMesh } from './bc.js';
 
-const ROUTES = new Set([
-  '#home',
-  '#qr-service',
-  '#alerts',
-  '#scan',
-  '#share',
-  '#create',
-  '#news',
-  '#connect',
-  '#emergency',
-  '#settings'
-]);
+const ROUTES = new Set(['#home', '#alerts', '#scan', '#share', '#create', '#news', '#connect', '#settings']);
 const APP_ORIGIN = window.location.origin || 'http://127.0.0.1:5173';
 const CONNECT_TIMEOUT_MS = 60000;
 const SHARE_QR_MAX_SIZE = 620;
@@ -112,7 +96,6 @@ let connectSyncText = t('connect.syncIdle');
 let connectLastSyncPhase = 'idle';
 let demoModeActive = false;
 let demoDevice = 'a';
-let deferredInstallPrompt = null;
 try {
   const storedDemoMode = localStorage.getItem(DEMO_MODE_KEY);
   demoModeActive = storedDemoMode === null ? false : storedDemoMode === 'true';
@@ -190,14 +173,12 @@ export async function render() {
 
     const routeRenderers = {
       '#home': renderHomeScreen,
-      '#qr-service': renderQrService,
       '#alerts': renderAlerts,
       '#scan': renderScan,
       '#share': renderShare,
       '#create': renderCreate,
       '#news': renderLocalNewsBroadcast,
       '#connect': renderConnect,
-      '#emergency': renderEmergencyAlerts,
       '#settings': renderSettings
     };
 
@@ -456,16 +437,11 @@ export function renderSettings() {
 
         <section class="settings-section">
           <div class="settings-section-title">${escapeHtml(t('settings.shareApp'))}</div>
-          <div class="settings-row settings-share-row">
+          <div class="settings-row">
             <label>${escapeHtml(t('settings.shareAppBody'))}</label>
-            <div class="settings-action-group">
-              <button class="btn-primary" type="button" data-install-app>
-                ${escapeHtml(t('pwa.installApp'))}
-              </button>
-              <button class="btn-secondary" type="button" data-share-app>
-                ${escapeHtml(t('settings.showQr'))}
-              </button>
-            </div>
+            <button class="btn-secondary" style="width:auto;margin:0" type="button" data-share-app>
+              ${escapeHtml(t('settings.showQr'))}
+            </button>
           </div>
         </section>
 
@@ -752,7 +728,6 @@ export async function showShareAppModal() {
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-primary" type="button" data-install-app>${escapeHtml(t('pwa.installApp'))}</button>
           <button class="btn-secondary" type="button" data-close-modal>${escapeHtml(t('app.close'))}</button>
         </div>
       </section>
@@ -764,49 +739,12 @@ export async function showShareAppModal() {
 
       if (event.target === overlay || target?.closest('[data-close-modal]')) {
         closeModal();
-        return;
-      }
-
-      if (target?.closest('[data-install-app]')) {
-        void promptInstallJanVaani();
       }
     });
 
     await renderQR(APP_ORIGIN, 'shareAppQr');
   } catch (error) {
     showToast(t('error.appQr', { message: error.message }), 'error');
-  }
-}
-
-/**
- * Prompts the browser to install JanVaani when the PWA install event is available.
- * @returns {Promise<void>} Resolves after the install prompt flow completes.
- */
-export async function promptInstallJanVaani() {
-  try {
-    if (isRunningStandalone()) {
-      showToast(t('pwa.alreadyInstalled'), 'info');
-      return;
-    }
-
-    if (!deferredInstallPrompt) {
-      showToast(t('pwa.installUnavailable'), 'info');
-      return;
-    }
-
-    const installPrompt = deferredInstallPrompt;
-    deferredInstallPrompt = null;
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-
-    if (choice?.outcome === 'accepted') {
-      showToast(t('pwa.installAccepted'), 'success');
-      return;
-    }
-
-    showToast(t('pwa.installDismissed'), 'info');
-  } catch (error) {
-    showToast(t('pwa.installFailed', { message: error.message }), 'error');
   }
 }
 
@@ -997,17 +935,6 @@ async function handleAppClick(event) {
       return;
     }
 
-    const installButton = target.closest('[data-install-app]');
-
-    if (installButton) {
-      await promptInstallJanVaani();
-      return;
-    }
-
-    if (await handleEmergencyClick(target)) {
-      return;
-    }
-
     const langButton = target.closest('[data-lang]');
 
     if (langButton) {
@@ -1180,10 +1107,6 @@ async function handleAppClick(event) {
 
 function handleAppInput(event) {
   try {
-    if (handleEmergencyInput(event)) {
-      return;
-    }
-
     const target = event.target;
 
     if (!(target instanceof HTMLTextAreaElement) || target.id !== 'createBody') {
@@ -1198,10 +1121,6 @@ function handleAppInput(event) {
 
 function handleAppChange(event) {
   try {
-    if (handleEmergencyChange(event)) {
-      return;
-    }
-
     const target = event.target;
 
     if (target instanceof HTMLInputElement && target.matches('[data-share-alert]')) {
@@ -1239,12 +1158,6 @@ async function handleAppSubmit(event) {
       return;
     }
 
-    if (form.id === 'emergencyBroadcastForm') {
-      event.preventDefault();
-      await handleEmergencySubmit(form);
-      return;
-    }
-
     if (form.matches('[data-community-chat-form]')) {
       event.preventDefault();
       await submitCommunityChat(form);
@@ -1279,12 +1192,24 @@ async function handleAppSubmit(event) {
       return;
     }
 
-    const alert = await createAlert(draft);
-    const validation = validateAlert(alert);
+    const unsignedAlert = await createAlert(draft);
+    const validation = validateAlert(unsignedAlert);
 
     if (!validation.valid) {
       showToast(validation.errors[0], 'error');
       return;
+    }
+
+    let alert = unsignedAlert;
+    try {
+      const keyPair = getOrCreateSigningKeyPair();
+      alert = {
+        ...unsignedAlert,
+        signature: signAlert(unsignedAlert, keyPair),
+        publicKey: keyPair.publicKeyBase64
+      };
+    } catch (signingError) {
+      console.warn('Alert signing failed, proceeding unsigned:', signingError);
     }
 
     const saved = await saveAlert(alert);
@@ -1297,6 +1222,7 @@ async function handleAppSubmit(event) {
 
     activeAlertFilter = 'all';
     broadcastLiveAlert(alert);
+    broadcastAlertViaBc(alert);
     showToast(t('create.saved'), 'success');
     navigate('#alerts');
   } catch (error) {
@@ -1324,12 +1250,24 @@ async function submitLocalNewsBroadcast(form) {
       return;
     }
 
-    const alert = await createAlert(draft);
-    const validation = validateAlert(alert);
+    const unsignedAlert = await createAlert(draft);
+    const validation = validateAlert(unsignedAlert);
 
     if (!validation.valid) {
       showToast(validation.errors[0], 'error');
       return;
+    }
+
+    let alert = unsignedAlert;
+    try {
+      const keyPair = getOrCreateSigningKeyPair();
+      alert = {
+        ...unsignedAlert,
+        signature: signAlert(unsignedAlert, keyPair),
+        publicKey: keyPair.publicKeyBase64
+      };
+    } catch (signingError) {
+      console.warn('Alert signing failed, proceeding unsigned:', signingError);
     }
 
     const saved = await saveAlert(alert);
@@ -1341,6 +1279,7 @@ async function submitLocalNewsBroadcast(form) {
     }
 
     broadcastLiveAlert(alert);
+    broadcastAlertViaBc(alert);
     showToast(t('news.saved'), 'success');
     form.reset();
     updateBodyCount(0);
@@ -1391,7 +1330,6 @@ function renderHeader() {
       <div class="header-actions">
         <span class="lang-indicator" aria-label="${escapeHtml(t('settings.language'))}">${escapeHtml(langLabel)}</span>
         <button class="header-icon-btn" type="button" data-share-app aria-label="${escapeHtml(t('app.share'))}">📲</button>
-        <button class="header-icon-btn header-alert-btn" type="button" data-route="#alerts" aria-label="${escapeHtml(t('home.viewAlerts.title'))}" title="${escapeHtml(t('home.viewAlerts.title'))}">!</button>
         <button class="header-icon-btn" type="button" data-route="#settings" aria-label="${escapeHtml(t('app.settings'))}">⚙️</button>
       </div>
     </header>
@@ -1411,10 +1349,6 @@ function renderDemoBanner() {
 }
 
 async function renderHomeScreen() {
-  return renderHomeActionList();
-}
-
-async function renderLegacyHomeScreen() {
   try {
     const alertCount = getPublicAlerts(await getAllAlerts()).length;
 
@@ -1466,63 +1400,6 @@ async function renderLegacyHomeScreen() {
     showToast(t('error.homeLoad', { message: error.message }), 'error');
     return renderUnavailable('📋', t('app.name'), t('error.homeLoad', { message: error.message }));
   }
-}
-
-function renderHomeActionList() {
-  return `
-    ${renderHeader()}
-    <main class="home-container" aria-label="${escapeHtml(t('app.primaryActions'))}">
-      <button class="home-btn" type="button" data-route="#qr-service">
-        <span class="home-btn-icon">QR</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.qrService.title'))}</h3>
-          <p>${escapeHtml(t('home.qrService.body'))}</p>
-        </span>
-      </button>
-      <button class="home-btn" type="button" data-route="#connect">
-        <span class="home-btn-icon">P2P</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.peer.title'))}</h3>
-          <p>${escapeHtml(t('home.peer.body'))}</p>
-        </span>
-      </button>
-      <button class="home-btn" type="button" data-route="#news">
-        <span class="home-btn-icon">NEWS</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.news.title'))}</h3>
-          <p>${escapeHtml(t('home.news.body'))}</p>
-        </span>
-      </button>
-      <button class="home-btn" type="button" data-route="#emergency">
-        <span class="home-btn-icon">!</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.emergency.title'))}</h3>
-        </span>
-      </button>
-    </main>
-  `;
-}
-
-function renderQrService() {
-  return `
-    ${renderHeader()}
-    <main class="home-container" aria-label="${escapeHtml(t('home.qrService.title'))}">
-      <button class="home-btn" type="button" data-route="#scan">
-        <span class="home-btn-icon">SCAN</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.scan.title'))}</h3>
-          <p>${escapeHtml(t('home.scan.body'))}</p>
-        </span>
-      </button>
-      <button class="home-btn" type="button" data-route="#share">
-        <span class="home-btn-icon">SHARE</span>
-        <span class="home-btn-text">
-          <h3>${escapeHtml(t('home.share.title'))}</h3>
-          <p>${escapeHtml(t('home.share.body'))}</p>
-        </span>
-      </button>
-    </main>
-  `;
 }
 
 function renderFilterBar() {
@@ -1957,6 +1834,17 @@ function getConfidenceLabel(alert) {
     return t('confidence.board');
   }
 
+  // Use actual cryptographic verification if signature present
+  if (alert.signature && alert.publicKey) {
+    const result = verifyAlertSignature(alert);
+    if (result.valid) {
+      return result.label;
+    }
+    if (result.status === 'invalid') {
+      return 'Signature mismatch';
+    }
+  }
+
   const hops = Math.max(0, Number(alert.hops ?? 0));
 
   if (hops === 0) {
@@ -2345,6 +2233,7 @@ async function saveScannedAlerts(parsed) {
     if (stats.saved > 0) {
       stats.alerts.forEach((alert) => {
         broadcastLiveAlert(alert);
+        broadcastAlertViaBc(alert);
       });
     }
 
@@ -2998,6 +2887,7 @@ async function handleLiveAlertMessage(message, channel) {
     }
 
     broadcastLiveAlert(relayedAlert, channel);
+    broadcastAlertViaBc(relayedAlert);
 
     showToast(
       t('connect.liveSaved', {
@@ -3656,43 +3546,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
-function handleBeforeInstallPrompt(event) {
-  deferredInstallPrompt = event;
-}
-
-function handleAppInstalled() {
-  deferredInstallPrompt = null;
-  closeModal();
-  showToast(t('pwa.installed'), 'success');
-}
-
-function isRunningStandalone() {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.matchMedia?.('(display-mode: fullscreen)').matches ||
-    window.navigator?.standalone === true
-  );
-}
-
-function handleServiceWorkerStatus(status, error) {
-  if (status === 'offline-ready') {
-    showToast(t('pwa.offlineReady'), 'success');
-    return;
-  }
-
-  if (status === 'update-ready') {
-    showToast(t('pwa.updateReady'), 'info');
-    return;
-  }
-
-  if (status === 'service-worker-error') {
-    console.warn('JanVaani offline cache unavailable:', error);
-  }
-}
-
-window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-window.addEventListener('appinstalled', handleAppInstalled);
-
 window.addEventListener('hashchange', () => {
   void render();
 });
@@ -3704,9 +3557,12 @@ window.addEventListener('DOMContentLoaded', () => {
 async function bootJanVaani() {
   try {
     await clearDevelopmentServiceWorkers();
-    registerJanVaaniServiceWorker(handleServiceWorkerStatus);
+    registerJanVaaniServiceWorker(() => {});
     initShakeToWipe();
     applyDemoMode();
+
+    // Initialise BroadcastChannel mesh (same-device multi-tab gossip)
+    initBroadcastMesh((fakeChannel) => triggerGossipSync(fakeChannel));
 
     // Hydrate community chat from IndexedDB
     try {

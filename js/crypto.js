@@ -109,15 +109,16 @@ export function getOrCreateSigningKeyPair() {
 export function createCanonicalAlertPayload(alert) {
   return JSON.stringify({
     v: 1,
-    category: alert.category,
-    title: alert.title,
-    location: alert.location,
-    details: alert.details,
-    severity: Number(alert.severity),
-    createdAt: alert.createdAt,
-    expiresAt: alert.expiresAt,
-    sourceType: alert.sourceType,
-    sourceName: alert.sourceName
+    type: String(alert.type ?? ''),
+    title: String(alert.title ?? ''),
+    body: String(alert.body ?? ''),
+    priority: Number(alert.priority ?? 0),
+    region: String(alert.region ?? ''),
+    created: Number(alert.created ?? 0),
+    expiresAt: Number(alert.expiresAt ?? 0),
+    source: String(alert.source ?? ''),
+    lang: String(alert.lang ?? ''),
+    version: Number(alert.version ?? 1)
   });
 }
 

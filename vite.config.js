@@ -1,101 +1,33 @@
 import { defineConfig } from 'vite';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { VitePWA } from 'vite-plugin-pwa';
-
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
-const devCertificatePath = path.join(rootDir, '.certs', 'janvaani-dev.pfx');
-const devKeyPath = path.join(rootDir, '.certs', 'janvaani-dev.key.pem');
-const devCertPath = path.join(rootDir, '.certs', 'janvaani-dev.cert.pem');
-const localHttps = fs.existsSync(devKeyPath) && fs.existsSync(devCertPath)
-  ? {
-    key: fs.readFileSync(devKeyPath),
-    cert: fs.readFileSync(devCertPath)
-  }
-  : fs.existsSync(devCertificatePath)
-  ? {
-    pfx: fs.readFileSync(devCertificatePath),
-    passphrase: process.env.JANVAANI_CERT_PASSPHRASE || 'janvaani'
-  }
-  : true;
-const needsBasicSsl = localHttps === true;
 
 export default defineConfig({
   server: {
     host: '0.0.0.0',
-    https: localHttps
-  },
-  preview: {
-    host: '0.0.0.0',
-    https: localHttps
+    https: true
   },
   build: {
     chunkSizeWarningLimit: 700
   },
   plugins: [
-    needsBasicSsl ? basicSsl() : undefined,
+    basicSsl(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
-        navigateFallback: '/index.html',
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true
+        globPatterns: ['**/*.{js,css,html,png,svg}']
       },
       manifest: {
-        id: '/',
         name: 'JanVaani',
         short_name: 'JanVaani',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',
         display: 'standalone',
         start_url: '/',
-        scope: '/',
         orientation: 'portrait',
-        lang: 'en',
-        categories: ['utilities', 'news', 'social'],
-        description: 'Offline public alert system for civilians during internet blackouts.',
-        shortcuts: [
-          {
-            name: 'Create Alert',
-            short_name: 'Create',
-            url: '/#create',
-            icons: [
-              {
-                src: '/icons/icon-192.png',
-                sizes: '192x192',
-                type: 'image/png'
-              }
-            ]
-          },
-          {
-            name: 'Scan QR',
-            short_name: 'Scan',
-            url: '/#scan',
-            icons: [
-              {
-                src: '/icons/icon-192.png',
-                sizes: '192x192',
-                type: 'image/png'
-              }
-            ]
-          },
-          {
-            name: 'Emergency Alerts',
-            short_name: 'Emergency',
-            url: '/#emergency',
-            icons: [
-              {
-                src: '/icons/icon-192.png',
-                sizes: '192x192',
-                type: 'image/png'
-              }
-            ]
-          }
-        ],
+        lang: 'hi-IN',
+        categories: ['utilities', 'productivity'],
+        description: 'Offline public alert system — जनवाणी',
         icons: [
           {
             src: '/icons/icon-192.png',
@@ -112,5 +44,5 @@ export default defineConfig({
         ]
       }
     })
-  ].filter(Boolean)
+  ]
 });
