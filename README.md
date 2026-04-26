@@ -1,4 +1,5 @@
-# MU1 JanVaani
+# JanVaani
+
 
 MU1 is a Vite-based, plain JavaScript offline PWA. The main app stays an installable web app. The Android code in `android-companion/` is only a small localhost bridge for BLE advertising and scanning.
 
